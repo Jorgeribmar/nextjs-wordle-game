@@ -1,15 +1,10 @@
 import React from 'react';
+import { CellContent } from '../types';
 
 type CellStatus = 'correct' | 'present' | 'absent' | 'empty';
 
-interface CellContent {
-    letter: string;
-    status: CellStatus;
-}
-
 interface GameBoardProps {
     cells: CellContent[][];
-    currentRow: number;
 }
 
 const Cell: React.FC<{ letter: string; status: CellStatus }> = ({ letter, status }) => {
@@ -41,7 +36,6 @@ const Cell: React.FC<{ letter: string; status: CellStatus }> = ({ letter, status
 
 const GameBoard: React.FC<GameBoardProps> = ({
     cells = Array(6).fill(Array(5).fill({ letter: '', status: 'empty' })),
-    currentRow = 0
 }) => {
     // Create a 6x5 grid
     const rows = 6;

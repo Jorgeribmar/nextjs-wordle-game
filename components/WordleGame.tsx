@@ -4,14 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { words } from '../data/words';
 import GameBoard from './GameBoard';
 import Keyboard from './Keyboard';
+import { CellContent, LetterState, GameStatus } from '../types';
 
-// Define types for our component state
-export type LetterState = 'correct' | 'present' | 'absent' | 'unused';
-type CellContent = {
-    letter: string;
-    state: LetterState;
-};
-type GameStatus = 'playing' | 'won' | 'lost';
 
 const WordleGame: React.FC = () => {
     const [solution, setSolution] = useState<string>('');
@@ -52,9 +46,85 @@ const WordleGame: React.FC = () => {
         console.log('New game started! Solution:', randomWord);
     };
 
+
+
     // Handle key press from the keyboard component
     const handleKeyPress = useCallback((key: string) => {
         if (gameStatus !== 'playing') return;
+
+        // Function to check the current guess against the solution
+        const checkGuess = (guess: string) => {
+            const solutionLetters = solution.split('');
+            const newGuesses = [...guesses];
+            const letterStates: Record<string, LetterState> = {};
+
+            // First pass: mark correct letters
+            for (let i = 0; i < 5; i++) {
+                if (guess[i] === solutionLetters[i]) {
+                    newGuesses[currentRow][i].state = 'correct';
+                    letterStates[guess[i]] = 'correct';
+                    // Mark this letter as used
+                    solutionLetters[i] = '#';
+                }
+            }
+
+            // Second pass: mark present and absent letters
+            for (let i = 0; i < 5; i++) {
+                if (newGuesses[currentRow][i].state !== 'correct') {
+                    const letterIndex = solutionLetters.indexOf(guess[i]);
+
+                    if (letterIndex !== -1) {
+                        newGuesses[currentRow][i].state = 'present';
+                        // Only update if the letter doesn't already have 'correct' status
+                        if (letterStates[guess[i]] !== 'correct') {
+                            letterStates[guess[i]] = 'present';
+                        }
+                        // Mark this letter as used
+                        solutionLetters[letterIndex] = '#';
+                    } else {
+                        newGuesses[currentRow][i].state = 'absent';
+                        // Only update if the letter doesn't already have 'correct' or 'present' status
+                        if (!letterStates[guess[i]]) {
+                            letterStates[guess[i]] = 'absent';
+                        }
+                    }
+                }
+            }
+
+            // Update the guesses and keyboard status
+            setGuesses(newGuesses);
+            setKeyboardStatus(prevStatus => ({
+                ...prevStatus,
+                ...Object.fromEntries(
+                    Object.entries(letterStates).map(([letter, state]) => {
+                        // Only "upgrade" the status (absent < present < correct)
+                        const currentState = prevStatus[letter];
+                        if (!currentState ||
+                            (currentState === 'absent' && (state === 'present' || state === 'correct')) ||
+                            (currentState === 'present' && state === 'correct')) {
+                            return [letter, state];
+                        }
+                        return [letter, currentState];
+                    })
+                )
+            }));
+
+            // Check if the player has won
+            if (guess === solution) {
+                setGameStatus('won');
+                setMessage('Congratulations! You won!');
+                return;
+            }
+
+            // Move to the next row or end the game
+            if (currentRow < 5) {
+                setCurrentRow(currentRow + 1);
+                setCurrentCol(0);
+            } else {
+                setGameStatus('lost');
+                setMessage(`Game over! The word was ${solution.toUpperCase()}`);
+            }
+        };
 
         // Handle letter keys
         if (/^[a-zA-Z]$/.test(key) && key.length === 1) {
@@ -100,80 +170,6 @@ const WordleGame: React.FC = () => {
         }
     }, [currentRow, currentCol, guesses, gameStatus, solution]);
 
-    // Function to check the current guess against the solution
-    const checkGuess = (guess: string) => {
-        const solutionLetters = solution.split('');
-        const newGuesses = [...guesses];
-        const letterStates: Record<string, LetterState> = {};
-
-        // First pass: mark correct letters
-        for (let i = 0; i < 5; i++) {
-            if (guess[i] === solutionLetters[i]) {
-                newGuesses[currentRow][i].state = 'correct';
-                letterStates[guess[i]] = 'correct';
-                // Mark this letter as used
-                solutionLetters[i] = '#';
-            }
-        }
-
-        // Second pass: mark present and absent letters
-        for (let i = 0; i < 5; i++) {
-            if (newGuesses[currentRow][i].state !== 'correct') {
-                const letterIndex = solutionLetters.indexOf(guess[i]);
-
-                if (letterIndex !== -1) {
-                    newGuesses[currentRow][i].state = 'present';
-                    // Only update if the letter doesn't already have 'correct' status
-                    if (letterStates[guess[i]] !== 'correct') {
-                        letterStates[guess[i]] = 'present';
-                    }
-                    // Mark this letter as used
-                    solutionLetters[letterIndex] = '#';
-                } else {
-                    newGuesses[currentRow][i].state = 'absent';
-                    // Only update if the letter doesn't already have 'correct' or 'present' status
-                    if (!letterStates[guess[i]]) {
-                        letterStates[guess[i]] = 'absent';
-                    }
-                }
-            }
-        }
-
-        // Update the guesses and keyboard status
-        setGuesses(newGuesses);
-        setKeyboardStatus(prevStatus => ({
-            ...prevStatus,
-            ...Object.fromEntries(
-                Object.entries(letterStates).map(([letter, state]) => {
-                    // Only "upgrade" the status (absent < present < correct)
-                    const currentState = prevStatus[letter];
-                    if (!currentState ||
-                        (currentState === 'absent' && (state === 'present' || state === 'correct')) ||
-                        (currentState === 'present' && state === 'correct')) {
-                        return [letter, state];
-                    }
-                    return [letter, currentState];
-                })
-            )
-        }));
-
-        // Check if the player has won
-        if (guess === solution) {
-            setGameStatus('won');
-            setMessage('Congratulations! You won!');
-            return;
-        }
-
-        // Move to the next row or end the game
-        if (currentRow < 5) {
-            setCurrentRow(currentRow + 1);
-            setCurrentCol(0);
-        } else {
-            setGameStatus('lost');
-            setMessage(`Game over! The word was ${solution.toUpperCase()}`);
-        }
-    };
-
     // Callback for keyboard events
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         handleKeyPress(e.key);
@@ -195,7 +191,7 @@ const WordleGame: React.FC = () => {
                 <div className="bg-gray-100 p-2 mb-4 rounded text-center w-full">{message}</div>
             )}
 
-            <GameBoard cells={guesses} currentRow={currentRow} />
+            <GameBoard cells={guesses} />
 
             {gameStatus !== 'playing' && (
                 // Show the solution when the game is over

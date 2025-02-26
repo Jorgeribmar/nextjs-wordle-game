@@ -1,9 +1,7 @@
 "use client"
 
 import React from 'react';
-
-import { LetterState } from './WordleGame';
-
+import { LetterState } from '../types';
 interface KeyboardProps {
     onKeyPress: (key: string) => void;
     letterStates: Record<string, LetterState>;
